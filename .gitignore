@@ -1,0 +1,40 @@
+# Virtual environment
+venv/
+ENV/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Uploaded files (local only)
+uploads/*
+processed/*
+
+# Allow empty folders to stay
+!uploads/.gitkeep
+!processed/.gitkeep
+
+# Model weights (don't upload trained models)
+models/**/*.h5
+models/**/*.keras
+models/**/*.pth
+models/**/*.pt
+
+# Poppler / Tesseract temp images
+*.ppm
+*.pgm
+*.png
+
+# VS Code settings
+.vscode/
+*.code-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
