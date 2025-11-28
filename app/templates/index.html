@@ -1,0 +1,37 @@
+{% extends "base.html" %} {% block title %}Home{% endblock %} {% block content
+%}
+<section class="card">
+  <h2>Upload a document</h2>
+  <form
+    action="/upload"
+    method="post"
+    enctype="multipart/form-data"
+    class="upload-form"
+  >
+    <input
+      type="file"
+      name="file"
+      accept=".pdf,.png,.jpg,.jpeg,.tiff,.bmp"
+      required
+    />
+    <button type="submit">Upload</button>
+  </form>
+  <p class="hint">Supported: PDF, PNG, JPG, JPEG, TIFF, BMP</p>
+</section>
+
+<section class="card">
+  <h2>Your Documents</h2>
+  {% if documents %}
+  <ul class="doc-list">
+    {% for doc_id, doc in documents.items() %}
+    <li>
+      <a href="/doc/{{ doc_id }}">{{ doc.filename }}</a>
+      <span class="meta">Chunks: {{ doc.meta.num_chunks }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No documents uploaded yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

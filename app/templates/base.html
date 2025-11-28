@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>DocVis - {% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="header">
+      <div class="header-inner">
+        <h1 class="logo"><a href="/">DocVis</a></h1>
+        <span class="tagline">OCR-Based Document Q&A</span>
+      </div>
+    </header>
+
+    <main class="main-content">{% block content %}{% endblock %}</main>
+
+    <footer class="footer">
+      <small>&copy; DocVis</small>
+    </footer>
+  </body>
+</html>

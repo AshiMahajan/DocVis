@@ -1,0 +1,77 @@
+{% extends "base.html" %} {% block title %}Document{% endblock %} {% block
+content %} {% if error %}
+<section class="card">
+  <p class="error">{{ error }}</p>
+</section>
+{% elif doc %}
+<section class="card">
+  <h2>{{ doc.filename }}</h2>
+  <h3>Summary</h3>
+  <pre class="summary">{{ doc.summary }}</pre>
+  <p class="meta">Chunks: {{ doc.meta.num_chunks }}</p>
+</section>
+
+<section class="card">
+  <h3>Ask questions about this document</h3>
+  <form id="qa-form" class="qa-form">
+    <input type="hidden" id="doc-id" value="{{ doc.id }}" />
+    <textarea
+      id="question"
+      name="question"
+      rows="3"
+      placeholder="Type your question..."
+      required
+    ></textarea>
+    <button type="submit">Ask</button>
+  </form>
+
+  <div id="qa-results" class="qa-results">
+    <!-- Answers will appear here -->
+  </div>
+</section>
+
+<script>
+  const form = document.getElementById("qa-form");
+  const resultsDiv = document.getElementById("qa-results");
+  const docId = document.getElementById("doc-id").value;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const question = document.getElementById("question").value;
+    const formData = new FormData();
+    formData.append("question", question);
+
+    resultsDiv.innerHTML = "<p>Loading...</p>";
+
+    try {
+      const response = await fetch(`/doc/${docId}/qa`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+      if (data.error) {
+        resultsDiv.innerHTML = `<p class="error">${data.error}</p>`;
+      } else {
+        let html = `<h4>Answer</h4><p>${data.answer.replace(
+          /\n/g,
+          "<br>"
+        )}</p>`;
+        if (data.references && data.references.length) {
+          html += "<h5>References</h5><ul>";
+          data.references.forEach((ref) => {
+            html += `<li>${ref}</li>`;
+          });
+          html += "</ul>";
+        }
+        resultsDiv.innerHTML = html;
+      }
+    } catch (err) {
+      resultsDiv.innerHTML = `<p class="error">Error: ${err}</p>`;
+    }
+  });
+</script>
+{% else %}
+<section class="card">
+  <p>Document not found.</p>
+</section>
+{% endif %} {% endblock %}
