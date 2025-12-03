@@ -1,8 +1,7 @@
 # app/main.py
 import uuid
 from pathlib import Path
-from typing import Dict
-
+from typing import Dict, Optional
 from fastapi import FastAPI, Request, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -81,35 +80,59 @@ async def upload_document(file: UploadFile = File(...)):
 @app.get("/doc/{doc_id}", response_class=HTMLResponse)
 async def view_document(doc_id: str, request: Request):
     """
-    Show document summary + QA interface.
+    Show document summary + QA interface (no answer yet).
     """
     doc = DOCUMENTS.get(doc_id)
     if not doc:
         return templates.TemplateResponse(
             "document.html",
-            {"request": request, "error": "Document not found", "doc": None},
+            {
+                "request": request,
+                "error": "Document not found",
+                "doc": None,
+                "answer": None,
+                "references": [],
+            },
         )
 
     return templates.TemplateResponse(
         "document.html",
-        {"request": request, "doc": doc},
+        {
+            "request": request,
+            "doc": doc,
+            "answer": None,
+            "references": [],
+        },
     )
 
 
-@app.post("/doc/{doc_id}/qa")
-async def qa_endpoint(doc_id: str, question: str = Form(...)):
+@app.post("/doc/{doc_id}", response_class=HTMLResponse)
+async def view_document_post(doc_id: str, request: Request, question: str = Form(...)):
     """
-    Q&A endpoint, used by AJAX from the document page.
+    Handle Q&A form submit and re-render page with answer.
     """
     doc = DOCUMENTS.get(doc_id)
     if not doc:
-        return JSONResponse({"error": "Document not found"}, status_code=404)
+        return templates.TemplateResponse(
+            "document.html",
+            {
+                "request": request,
+                "error": "Document not found",
+                "doc": None,
+                "answer": None,
+                "references": [],
+            },
+        )
+    from .services.qa import answer_question
 
     answer, references = answer_question(doc_id, question, doc["meta"])
 
-    return JSONResponse(
+    return templates.TemplateResponse(
+        "document.html",
         {
+            "request": request,
+            "doc": doc,
             "answer": answer,
             "references": references,
-        }
+        },
     )
