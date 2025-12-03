@@ -6,70 +6,65 @@ content %} {% if error %}
 {% elif doc %}
 <section class="card">
   <h2>{{ doc.filename }}</h2>
-  <h3>Summary</h3>
-  <pre class="summary">{{ doc.summary }}</pre>
   <p class="meta">Chunks: {{ doc.meta.num_chunks }}</p>
-</section>
 
-<section class="card">
-  <h3>Ask questions about this document</h3>
-  <form id="qa-form" class="qa-form">
-    <input type="hidden" id="doc-id" value="{{ doc.id }}" />
-    <textarea
-      id="question"
-      name="question"
-      rows="3"
-      placeholder="Type your question..."
-      required
-    ></textarea>
-    <button type="submit">Ask</button>
-  </form>
+  <!-- CSS-only tabs using radio buttons -->
+  <div class="tabs-wrapper">
+    <!-- radios (hidden) -->
+    <input type="radio" name="tab" id="tab-extract" checked />
+    <input type="radio" name="tab" id="tab-summary" />
+    <input type="radio" name="tab" id="tab-qa" />
 
-  <div id="qa-results" class="qa-results">
-    <!-- Answers will appear here -->
+    <!-- labels as tab buttons -->
+    <div class="tabs">
+      <label class="tab-label" for="tab-extract">Extracted Text</label>
+      <label class="tab-label" for="tab-summary">Summary</label>
+      <label class="tab-label" for="tab-qa">Q&amp;A</label>
+    </div>
+
+    <!-- panels -->
+    <div class="tab-panels">
+      <div class="tab-panel" id="panel-extract">
+        <h3>Extracted Text</h3>
+        <pre class="summary">{{ doc.meta.full_text }}</pre>
+      </div>
+
+      <div class="tab-panel" id="panel-summary">
+        <h3>Summary</h3>
+        <pre class="summary">{{ doc.summary }}</pre>
+      </div>
+
+      <div class="tab-panel" id="panel-qa">
+        <h3>Ask questions about this document</h3>
+        <form method="post" class="qa-form">
+          <textarea
+            name="question"
+            rows="3"
+            placeholder="Type your question..."
+            required
+          ></textarea>
+          <button type="submit">Ask</button>
+        </form>
+
+        <div class="qa-results">
+          {% if answer %}
+          <h4>Answer</h4>
+          <p>{{ answer }}</p>
+          {% if references %}
+          <h5>References</h5>
+          <ul>
+            {% for ref in references %}
+            <li>{{ ref }}</li>
+            {% endfor %}
+          </ul>
+          {% endif %} {% else %}
+          <p class="hint">Ask a question to see the answer here.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
   </div>
 </section>
-
-<script>
-  const form = document.getElementById("qa-form");
-  const resultsDiv = document.getElementById("qa-results");
-  const docId = document.getElementById("doc-id").value;
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const question = document.getElementById("question").value;
-    const formData = new FormData();
-    formData.append("question", question);
-
-    resultsDiv.innerHTML = "<p>Loading...</p>";
-
-    try {
-      const response = await fetch(`/doc/${docId}/qa`, {
-        method: "POST",
-        body: formData,
-      });
-      const data = await response.json();
-      if (data.error) {
-        resultsDiv.innerHTML = `<p class="error">${data.error}</p>`;
-      } else {
-        let html = `<h4>Answer</h4><p>${data.answer.replace(
-          /\n/g,
-          "<br>"
-        )}</p>`;
-        if (data.references && data.references.length) {
-          html += "<h5>References</h5><ul>";
-          data.references.forEach((ref) => {
-            html += `<li>${ref}</li>`;
-          });
-          html += "</ul>";
-        }
-        resultsDiv.innerHTML = html;
-      }
-    } catch (err) {
-      resultsDiv.innerHTML = `<p class="error">Error: ${err}</p>`;
-    }
-  });
-</script>
 {% else %}
 <section class="card">
   <p>Document not found.</p>

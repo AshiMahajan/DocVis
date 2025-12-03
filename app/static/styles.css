@@ -120,3 +120,53 @@ button:hover {
   font-size: 0.8rem;
   color: #6b7280;
 }
+/* Tabs (CSS-only) */
+.tabs-wrapper {
+  margin-top: 1rem;
+}
+
+/* Hide radios */
+.tabs-wrapper input[name="tab"] {
+  display: none;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.tab-label {
+  padding: 0.4rem 0.9rem;
+  border-radius: 9999px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  cursor: pointer;
+  font-size: 0.9rem;
+  user-select: none;
+}
+
+/* Default inactive panel styling */
+.tab-panels {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 0.75rem;
+}
+
+.tab-panel {
+  display: none;
+}
+
+/* When a radio is checked, show its panel and highlight the label */
+#tab-extract:checked ~ .tabs .tab-label[for="tab-extract"],
+#tab-summary:checked ~ .tabs .tab-label[for="tab-summary"],
+#tab-qa:checked ~ .tabs .tab-label[for="tab-qa"] {
+  background: #2563eb;
+  color: #f9fafb;
+  border-color: #2563eb;
+}
+
+#tab-extract:checked ~ .tab-panels #panel-extract,
+#tab-summary:checked ~ .tab-panels #panel-summary,
+#tab-qa:checked ~ .tab-panels #panel-qa {
+  display: block;
+}
