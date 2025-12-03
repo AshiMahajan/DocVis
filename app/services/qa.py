@@ -1,94 +1,134 @@
 # app/services/qa.py
-from typing import Tuple, List, Dict
+import os
+import numpy as np
+from typing import List, Tuple, Dict
+from sentence_transformers import SentenceTransformer
+from huggingface_hub import InferenceClient
 
-# Later you can import and use sentence-transformers etc.
-# from sentence_transformers import SentenceTransformer
-# import numpy as np
+# HF client
+HF_TOKEN = os.environ.get("HF_TOKEN")
+hf_client = None
+if HF_TOKEN:
+    hf_client = InferenceClient(
+        provider="hf-inference",
+        api_key=HF_TOKEN,
+    )
 
-# model = SentenceTransformer("all-MiniLM-L6-v2")
-
-# In-memory mapping: doc_id -> list of chunks
+# Store chunks for each doc
 DOC_CHUNKS: Dict[str, List[dict]] = {}
+
+# Embedding model
+embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+
+
+# ------------------ chunking ------------------
 
 
 def _chunk_text(text: str, max_chars: int = 800) -> List[str]:
-    """
-    Naive text chunking by length/paragraphs.
-    """
     chunks = []
-    current = []
-    current_len = 0
+    curr = []
+    curr_len = 0
 
-    for para in text.split("\n"):
-        para = para.strip()
-        if not para:
+    for line in text.split("\n"):
+        line = line.strip()
+        if not line:
             continue
 
-        if current_len + len(para) > max_chars:
-            chunks.append("\n".join(current))
-            current = [para]
-            current_len = len(para)
+        if curr_len + len(line) > max_chars:
+            chunks.append("\n".join(curr))
+            curr = [line]
+            curr_len = len(line)
         else:
-            current.append(para)
-            current_len += len(para)
+            curr.append(line)
+            curr_len += len(line)
 
-    if current:
-        chunks.append("\n".join(current))
+    if curr:
+        chunks.append("\n".join(curr))
 
     return chunks
 
 
+# ------------------ document processing ------------------
+
+
 def process_document_text(doc_id: str, text: str) -> Tuple[str, dict]:
-    """
-    Prepare a document for Q&A:
-      - chunk text
-      - (later) compute embeddings
-      - store in DOC_CHUNKS
-      - return a short summary + meta
-    """
     chunks = _chunk_text(text)
+
+    embeddings = (
+        embedding_model.encode(chunks, convert_to_tensor=False) if chunks else []
+    )
+
     DOC_CHUNKS[doc_id] = [
         {
-            "chunk_id": i,
+            "chunk_id": idx,
             "text": chunk,
-            # "embedding": embedding_vector_here (later)
+            "embedding": np.asarray(emb, dtype="float32"),
         }
-        for i, chunk in enumerate(chunks)
+        for idx, (chunk, emb) in enumerate(zip(chunks, embeddings))
     ]
 
-    # Simple 'summary' for now: first few lines
-    summary_lines = text.split("\n")[:5]
-    summary = (
-        "\n".join(summary_lines)[:500] if summary_lines else "Summary not available."
-    )
+    # Summary = first chunk (simple)
+    summary = (text[:500] + "...") if len(text) > 500 else text
 
     meta = {
         "num_chunks": len(chunks),
-        # "doc_type": "unknown" (later you can use classifier)
+        "full_text": text,
     }
-
     return summary, meta
 
 
-def answer_question(doc_id: str, question: str, meta: dict) -> Tuple[str, List[str]]:
-    """
-    For MVP:
-      - Just return a dummy answer using first chunk as 'context'.
-    Later:
-      - Compute question embedding, do nearest neighbor search over chunks,
-        then call LLM with those chunks to get answer.
-    """
+# ------------------ semantic search ------------------
+
+
+def _retrieve_relevant_chunks(doc_id: str, question: str, top_k: int = 3) -> List[dict]:
     chunks = DOC_CHUNKS.get(doc_id, [])
     if not chunks:
-        return "I could not find any content for this document.", []
+        return []
 
-    # Dummy: use first chunk
-    first_chunk = chunks[0]["text"]
-    answer = (
-        f'(Dummy answer) You asked: "{question}". '
-        f"I would search in the document. Here's some context I see:\n\n"
-        f"{first_chunk[:300]}..."
-    )
-    references = [f"Chunk 0: {first_chunk[:200]}..."]
+    q_emb = embedding_model.encode([question], convert_to_tensor=False)[0]
+    q_emb = np.asarray(q_emb, dtype="float32")
+
+    scores = []
+    for ch in chunks:
+        emb = ch["embedding"]
+        sim = float(
+            np.dot(q_emb, emb) / ((np.linalg.norm(q_emb) * np.linalg.norm(emb)) + 1e-8)
+        )
+        scores.append((sim, ch))
+
+    scores.sort(key=lambda x: x[0], reverse=True)
+    return [ch for _, ch in scores[:top_k]]
+
+
+# ------------------ HuggingFace QA ------------------
+
+
+def _answer_with_hf(question: str, context: str) -> str:
+    if not hf_client:
+        return "HF_TOKEN not set. Please configure environment variable."
+
+    try:
+        result = hf_client.question_answering(
+            model="deepset/roberta-base-squad2",
+            question=question,
+            context=context,
+        )
+        return result.get("answer", "No answer found.")
+    except Exception as e:
+        return f"Error calling HuggingFace API: {e}"
+
+
+def answer_question(doc_id: str, question: str, meta: dict) -> Tuple[str, List[str]]:
+    chunks = _retrieve_relevant_chunks(doc_id, question, top_k=3)
+
+    if not chunks:
+        return "No relevant content found.", []
+
+    # Combine chunks for a strong context
+    combined_context = "\n\n".join(ch["text"] for ch in chunks)
+
+    answer = _answer_with_hf(question, combined_context)
+
+    references = [f"Chunk {ch['chunk_id']}: {ch['text'][:200]}..." for ch in chunks]
 
     return answer, references
